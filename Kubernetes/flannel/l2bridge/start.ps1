@@ -43,6 +43,12 @@ function DownloadAllFiles()
     DownloadWindowsKubernetesScripts
 }
 
+function PrepareForUse()
+{
+    #Update Dockerfile for windows 1803
+    (get-content c:\k\Dockerfile) | foreach-object {$_ -replace "nanoserver", "nanoserver:1803"} | set-content c:\k\Dockerfile
+}
+
 $BaseDir = "c:\k"
 md $BaseDir -ErrorAction Ignore
 $helper = "c:\k\helper.psm1"
@@ -54,6 +60,7 @@ ipmo $helper
 
 # Download All the files
 DownloadAllFiles
+PrepareForUse
 
 # Prepare POD infra Images
 start powershell $BaseDir\InstallImages.ps1
