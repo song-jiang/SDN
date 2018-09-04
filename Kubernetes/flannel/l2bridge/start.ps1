@@ -46,7 +46,13 @@ function DownloadAllFiles()
 function PrepareForUse()
 {
     #Update Dockerfile for windows 1803
-    (get-content c:\k\Dockerfile) | foreach-object {$_ -replace "nanoserver", "nanoserver:1803"} | set-content c:\k\Dockerfile
+    $Exist1803 = cat c:\k\Dockerfile | findstr.exe 1803
+    if (!$Exist1803)
+    {
+        Write-Host "Update dockerfile for 1803"
+
+        (get-content c:\k\Dockerfile) | foreach-object {$_ -replace "nanoserver", "nanoserver:1803"} | set-content c:\k\Dockerfile
+    }
 }
 
 $BaseDir = "c:\k"
