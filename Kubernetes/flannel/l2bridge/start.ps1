@@ -9,7 +9,7 @@
 function DownloadFlannelBinaries()
 {
     md c:\flannel -ErrorAction Ignore
-    DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/flanneld.exe" -Destination c:\flannel\flanneld.exe
+    DownloadFile -Url  "https://github.com/song-jiang/flannel/raw/host-gw/dist/flanneld.exe" -Destination c:\flannel\flanneld.exe
 }
 
 function DownloadCniBinaries()
@@ -33,7 +33,7 @@ function DownloadWindowsKubernetesScripts()
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/InstallImages.ps1 -Destination $BaseDir\InstallImages.ps1
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/Dockerfile -Destination $BaseDir\Dockerfile
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/stop.ps1 -Destination $BaseDir\stop.ps1
-    DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1 
+    DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/start-kubeproxy.ps1 -Destination $BaseDir\start-Kubeproxy.ps1
 }
 
@@ -69,7 +69,7 @@ DownloadAllFiles
 PrepareForUse
 
 # Prepare POD infra Images
-start powershell $BaseDir\InstallImages.ps1
+.\InstallImages.ps1
 
 # Prepare Network & Start Infra services
 $NetworkMode = "L2Bridge"
@@ -84,7 +84,10 @@ ipmo C:\k\hns.psm1
 # Create a L2Bridge to trigger a vSwitch creation. Do this only once
 if(!(Get-HnsNetwork | ? Name -EQ "External"))
 {
+    Write-Host "Start creating vSwitch. Connection may get lost for RDP, please reconnect..."
     New-HNSNetwork -Type $NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -Name "External" -Verbose
+    # Wait for vSwitch been created.
+    Start-Sleep 20
 }
 
 StartFlanneld -ipaddress $ManagementIP -NetworkName $NetworkName
