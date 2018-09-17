@@ -1,5 +1,5 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$ip = Get-NetIpaddress | Where InterfaceAlias -EQ 'Ethernet 2' | where AddressFamily -EQ IPV4
+$ip = Get-NetIpaddress | Where InterfaceAlias -Like '*Ethernet 2*' | where AddressFamily -EQ IPV4
 
 pushd
 cd c:\k
