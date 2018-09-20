@@ -60,7 +60,7 @@ md $BaseDir -ErrorAction Ignore
 $helper = "c:\k\helper.psm1"
 if (!(Test-Path $helper))
 {
-    Start-BitsTransfer https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/helper.psm1 -Destination c:\k\helper.psm1
+    Invoke-WebRequest https://raw.githubusercontent.com/Microsoft/SDN/master/Kubernetes/windows/helper.psm1 -O c:\k\helper.psm1
 }
 ipmo $helper
 
