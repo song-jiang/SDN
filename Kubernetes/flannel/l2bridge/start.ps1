@@ -115,3 +115,5 @@ Start-Sleep 10
 Write-Host "`nStart kube-proxy...`n"
 .\start-kubeproxy.ps1 -NetworkName $NetworkName
 Write-Host "`nkube-proxy started`n"
+
+exit
