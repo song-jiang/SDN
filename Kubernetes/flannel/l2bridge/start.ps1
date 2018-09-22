@@ -33,8 +33,8 @@ function DownloadWindowsKubernetesScripts()
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/InstallImages.ps1 -Destination $BaseDir\InstallImages.ps1
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/Dockerfile -Destination $BaseDir\Dockerfile
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/stop.ps1 -Destination $BaseDir\stop.ps1
-    DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1
-    DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/start-kubeproxy.ps1 -Destination $BaseDir\start-Kubeproxy.ps1
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/flannel/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/flannel/l2bridge/start-kubeproxy.ps1 -Destination $BaseDir\start-Kubeproxy.ps1
 }
 
 function DownloadAllFiles()
@@ -53,6 +53,19 @@ function PrepareForUse()
 
         (get-content c:\k\Dockerfile) | foreach-object {$_ -replace "nanoserver", "nanoserver:1803"} | set-content c:\k\Dockerfile
     }
+}
+
+function StartFlanneldWithLog($ipaddress, $NetworkName)
+{
+    # Start FlannelD, which would recreate the network.
+    # Expect disruption in node connectivity for few seconds
+    pushd
+    cd C:\flannel\
+    [Environment]::SetEnvironmentVariable("NODE_NAME", (hostname).ToLower())
+    start-Process C:\flannel\flanneld.exe -ArgumentList "--kubeconfig-file=C:\k\config --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" -RedirectStandardOutput C:\k\flanneld.1.log -RedirectStandardError C:\k\flanneld.2.log
+    popd
+
+    WaitForNetwork $NetworkName
 }
 
 $BaseDir = "c:\k"
@@ -77,8 +90,6 @@ $NetworkName = "cbr0"
 
 CleanupOldNetwork $NetworkName
 
-powershell $BaseDir\start-kubelet.ps1 -RegisterOnly
-
 ipmo C:\k\hns.psm1
 
 # Create a L2Bridge to trigger a vSwitch creation. Do this only once
@@ -87,11 +98,20 @@ if(!(Get-HnsNetwork | ? Name -EQ "External"))
     Write-Host "`nStart creating vSwitch. Note: Connection may get lost for RDP, please reconnect...`n"
     New-HNSNetwork -Type $NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -Name "External" -Verbose
     # Wait longer enough for vSwitch been created.
-    Start-Sleep 30
+    Start-Sleep 10
 }
 
-StartFlanneld -ipaddress $ManagementIP -NetworkName $NetworkName
+Write-Host "`nStart kubelet...`n"
+.\start-kubelet.ps1 -clusterCIDR $ClusterCIDR -KubeDnsServiceIP $KubeDnsServiceIP -serviceCIDR $ServiceCIDR -IsolationType $IsolationType -NetworkName $NetworkName
+Write-Host "`nkubelet started`n"
 
-Start powershell -ArgumentList "-File $BaseDir\start-kubelet.ps1 -clusterCIDR $ClusterCIDR -KubeDnsServiceIP $KubeDnsServiceIP -serviceCIDR $ServiceCIDR -IsolationType $IsolationType -NetworkName $NetworkName"
+
 Start-Sleep 10
-start powershell -ArgumentList " -File $BaseDir\start-kubeproxy.ps1 -NetworkName $NetworkName"
+Write-Host "`nStart flanneld...`n"
+StartFlanneldWithLog -ipaddress $ManagementIP -NetworkName $NetworkName
+Write-Host "`nflanneld started`n"
+
+Start-Sleep 10
+Write-Host "`nStart kube-proxy...`n"
+.\start-kubeproxy.ps1 -NetworkName $NetworkName
+Write-Host "`nkube-proxy started`n"

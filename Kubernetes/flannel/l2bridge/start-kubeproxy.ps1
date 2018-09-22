@@ -5,4 +5,6 @@ Param(
 $env:KUBE_NETWORK=$NetworkName.ToLower()
 ipmo c:\k\hns.psm1
 Get-HnsPolicyList | Remove-HnsPolicyList
-c:\k\kube-proxy.exe --v=4 --proxy-mode=kernelspace --hostname-override=$(hostname) --kubeconfig=c:\k\config
+
+$argList = @("--hostname-override=$(hostname)","--v=4","--proxy-mode=kernelspace","--kubeconfig=""c:\k\config""")
+Start-Process -FilePath c:\k\kube-proxy.exe -ArgumentList $argList -RedirectStandardOutput C:\k\kube-proxy.1.log -RedirectStandardError C:\k\kube-proxy.2.log
