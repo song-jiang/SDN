@@ -1,0 +1,5 @@
+apiVersion: projectcalico.org/v3
+kind: CalicoAPIConfig
+metadata:
+spec:
+ etcdEndpoints: http://ETCD_IP:6666
