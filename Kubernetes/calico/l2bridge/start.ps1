@@ -13,6 +13,8 @@ function DownloadCniBinaries()
 
     DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/calico/l2bridge/cni/config/cni.conf -Destination $BaseDir\cni\config
     DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/host-local.exe" -Destination $BaseDir\cni\host-local.exe
+
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/calico/calicocfg -Destination $BaseDir\calicocfg
 }
 
 function DownloadWindowsKubernetesScripts()
@@ -50,6 +52,7 @@ function SetEtcdEndpoint()
     ETCD_IP = c:\k\kubectl --kubeconfig=c:\k\config get pod -n kube-system --selector=k8s-app=calico-etcd -o jsonpath='{.items[*].status.podIP}'
 
     (Get-Content c:\k\cni\config\cni.conf).replace('ETCD_IP', "$ETCD_IP") | Set-Content c:\k\cni\config\cni.conf -Force
+    (Get-Content c:\k\calicocfg).replace('ETCD_IP', "$ETCD_IP") | Set-Content c:\k\calicocfg -Force
 }
 
 $BaseDir = "c:\k"
