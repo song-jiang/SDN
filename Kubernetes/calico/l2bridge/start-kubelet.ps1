@@ -4,8 +4,7 @@ Param(
     [parameter(Mandatory = $false)] $serviceCIDR="10.96.0.0/12",
     [parameter(Mandatory = $false)] $KubeDnsSuffix="svc.cluster.local",
     [ValidateSet("process", "hyperv")] $IsolationType="process",
-    $NetworkName = "cbr0",
-    [switch] $RegisterOnly
+    $NetworkName = "External"
 )
 
 $NetworkMode = "L2Bridge"
@@ -15,37 +14,8 @@ $WorkingDir = "c:\k"
 $CNIPath = [Io.path]::Combine($WorkingDir , "cni")
 $CNIConfig = [Io.path]::Combine($CNIPath, "config", "cni.conf")
 
-$endpointName = "cbr0"
-$vnicName = "vEthernet ($endpointName)"
-
 function
-IsNodeRegistered()
-{
-    c:\k\kubectl.exe --kubeconfig=c:\k\config get nodes/$($(hostname).ToLower())
-    return (!$LASTEXITCODE)
-}
-
-function
-RegisterNode()
-{
-    if (!(IsNodeRegistered))
-    {
-        $argList = @("--hostname-override=$(hostname)","--pod-infra-container-image=kubeletwin/pause","--resolv-conf=""""", "--cgroups-per-qos=false", "--enforce-node-allocatable=""""","--kubeconfig=c:\k\config")
-        $process = Start-Process -FilePath c:\k\kubelet.exe -PassThru -ArgumentList $argList
-
-        # Wait till the 
-        while (!(IsNodeRegistered))
-        {
-            Write-Host "waiting to discover node registration status"
-            Start-Sleep -sec 1
-        }
-
-        $process | Stop-Process | Out-Null
-    }
-}
-
-function
-Get-MgmtIpAddress()
+Get-MgmtIpAddress
 {
     return (Get-HnsNetwork | ? Name -EQ $NetworkName.ToLower()).ManagementIP
 }
@@ -159,13 +129,7 @@ Update-CNIConfig($podCIDR)
     Add-Content -Path $CNIConfig -Value (ConvertTo-Json $configJson -Depth 20)
 }
 
-if ($RegisterOnly.IsPresent)
-{
-    RegisterNode
-    exit
-}
-
-Update-CNIConfig $podCIDR
+# Update-CNIConfig $podCIDR
 
 if ($IsolationType -ieq "process")
 {
@@ -179,13 +143,6 @@ if ($IsolationType -ieq "process")
         "--network-plugin=cni", "--cni-bin-dir=""c:\k\cni""", "--cni-conf-dir ""c:\k\cni\config""")
 
     Start-Process -FilePath c:\k\kubelet.exe -ArgumentList $argList -RedirectStandardOutput C:\k\kubelet.1.log -RedirectStandardError C:\k\kubelet.2.log
-
-    # Wait till node registered
-    while (!(IsNodeRegistered))
-    {
-        Write-Host "waiting to discover node registration status"
-        Start-Sleep -sec 1
-    }
 }
 elseif ($IsolationType -ieq "hyperv")
 {

@@ -6,24 +6,13 @@
     [ValidateSet("process", "hyperv")] $IsolationType = "process"
 )
 
-function DownloadFlannelBinaries()
-{
-    md c:\flannel -ErrorAction Ignore
-    DownloadFile -Url  "https://github.com/song-jiang/flannel/raw/host-gw/dist/flanneld.exe" -Destination c:\flannel\flanneld.exe
-}
-
 function DownloadCniBinaries()
 {
     Write-Host "Downloading CNI binaries"
-    DownloadFlannelBinaries
     md $BaseDir\cni\config -ErrorAction Ignore
-    md C:\etc\kube-flannel -ErrorAction Ignore
 
-    DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/l2bridge.exe" -Destination $BaseDir\cni\l2bridge.exe
-    DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/flannel.exe" -Destination $BaseDir\cni\flannel.exe
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/calico/l2bridge/cni/config/cni.conf -Destination $BaseDir\cni\config
     DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/cni/host-local.exe" -Destination $BaseDir\cni\host-local.exe
-    DownloadFile -Url  "https://github.com/Microsoft/SDN/raw/master/Kubernetes/flannel/l2bridge/net-conf.json" -Destination $BaseDir\net-conf.json
-    cp $BaseDir\net-conf.json C:\etc\kube-flannel\net-conf.json
 }
 
 function DownloadWindowsKubernetesScripts()
@@ -33,8 +22,8 @@ function DownloadWindowsKubernetesScripts()
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/InstallImages.ps1 -Destination $BaseDir\InstallImages.ps1
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/Dockerfile -Destination $BaseDir\Dockerfile
     DownloadFile -Url  https://github.com/Microsoft/SDN/raw/master/Kubernetes/windows/stop.ps1 -Destination $BaseDir\stop.ps1
-    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/flannel/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1
-    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/flannel/l2bridge/start-kubeproxy.ps1 -Destination $BaseDir\start-Kubeproxy.ps1
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/calico/l2bridge/start-kubelet.ps1 -Destination $BaseDir\start-Kubelet.ps1
+    DownloadFile -Url  https://github.com/song-jiang/SDN/raw/song-cf/Kubernetes/calico/l2bridge/start-kubeproxy.ps1 -Destination $BaseDir\start-Kubeproxy.ps1
 }
 
 function DownloadAllFiles()
@@ -55,17 +44,12 @@ function PrepareForUse()
     }
 }
 
-function StartFlanneldWithLog($ipaddress, $NetworkName)
+function SetEtcdEndpoint()
 {
-    # Start FlannelD, which would recreate the network.
-    # Expect disruption in node connectivity for few seconds
-    pushd
-    cd C:\flannel\
-    [Environment]::SetEnvironmentVariable("NODE_NAME", (hostname).ToLower())
-    start-Process C:\flannel\flanneld.exe -ArgumentList "--kubeconfig-file=C:\k\config --iface=$ipaddress --ip-masq=1 --kube-subnet-mgr=1" -RedirectStandardOutput C:\k\flanneld.1.log -RedirectStandardError C:\k\flanneld.2.log
-    popd
 
-    WaitForNetwork $NetworkName
+    ETCD_IP = c:\k\kubectl --kubeconfig=c:\k\config get pod -n kube-system --selector=k8s-app=calico-etcd -o jsonpath='{.items[*].status.podIP}'
+
+    (Get-Content c:\k\cni\config\cni.conf).replace('ETCD_IP', "$ETCD_IP") | Set-Content c:\k\cni\config\cni.conf -Force
 }
 
 $BaseDir = "c:\k"
@@ -81,12 +65,14 @@ ipmo $helper
 DownloadAllFiles
 PrepareForUse
 
+SetEtcdEndpoint
+
 # Prepare POD infra Images
 .\InstallImages.ps1
 
 # Prepare Network & Start Infra services
 $NetworkMode = "L2Bridge"
-$NetworkName = "cbr0"
+$NetworkName = "k8s-pod-network"
 
 CleanupOldNetwork $NetworkName
 
@@ -105,11 +91,6 @@ Write-Host "`nStart kubelet...`n"
 .\start-kubelet.ps1 -clusterCIDR $ClusterCIDR -KubeDnsServiceIP $KubeDnsServiceIP -serviceCIDR $ServiceCIDR -IsolationType $IsolationType -NetworkName $NetworkName
 Write-Host "`nkubelet started`n"
 
-
-Start-Sleep 10
-Write-Host "`nStart flanneld...`n"
-StartFlanneldWithLog -ipaddress $ManagementIP -NetworkName $NetworkName
-Write-Host "`nflanneld started`n"
 
 Start-Sleep 10
 Write-Host "`nStart kube-proxy...`n"

@@ -1,5 +1,5 @@
 Param(
-    $NetworkName = "cbr0"
+    $NetworkName = "k8s-pod-network"
 )
 
 $env:KUBE_NETWORK=$NetworkName.ToLower()
