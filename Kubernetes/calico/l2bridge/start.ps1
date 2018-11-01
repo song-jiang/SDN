@@ -70,8 +70,8 @@ ipmo C:\k\hns.psm1
 # Create a L2Bridge to trigger a vSwitch creation. Do this only once
 if(!(Get-HnsNetwork | ? Name -EQ "External"))
 {
-    Write-Host "`nWarning: vSwitch is not present`n"
-    Get-HnsNetwork
+    Write-Host "`nStart creating vSwitch. Note: Connection may get lost for RDP, please reconnect...`n"
+    New-HNSNetwork -Type $NetworkMode -AddressPrefix "192.168.255.0/30" -Gateway "192.168.255.1" -Name "External" -Verbose
     # Wait longer enough for vSwitch been created.
     Start-Sleep 10
 }
